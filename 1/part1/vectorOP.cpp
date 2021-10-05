@@ -59,20 +59,20 @@ void clampedExpVector(float *values, int *exponents, float *output, int N) {
   for (int i = 0; i < N || (i - N < VECTOR_WIDTH && i - N > 0);
        i += VECTOR_WIDTH) {
     maskActive = _pp_init_ones();
-    _pp_vload_int(exp, exponents + i, maskActive);
-    _pp_vload_float(vals, values + i, maskActive);
-    _pp_vset_float(result, 1.f, maskActive);
+    _pp_vload_int(exp, exponents + i, maskAll);
+    _pp_vload_float(vals, values + i, maskAll);
+    _pp_vset_float(result, 1.f, maskAll);
     _pp_vgt_int(maskActive, exp, zero, maskActive);
 
     while (_pp_cntbits(maskActive) > 0) {
       _pp_vsub_int(exp, exp, one, maskActive);
       _pp_vmult_float(result, result, vals, maskActive);
-      _pp_vgt_int(maskActive, exp, zero, maskActive);
       
       __pp_mask needClamp;
-      _pp_vgt_float(needClamp, result, clamp, maskActive);
-      _pp_vset_float(result, 9.999999, needClamp);
+      _pp_vgt_float(needClamp, result, clamp, maskAll);
+      _pp_vset_float(result, 9.999999f, needClamp);
       _pp_vlt_float(maskActive, result, clamp, maskActive);
+      _pp_vgt_int(maskActive, exp, zero, maskActive);
     }
     _pp_vstore_float(output+i, result, maskAll);
   }
