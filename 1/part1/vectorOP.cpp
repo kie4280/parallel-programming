@@ -83,17 +83,22 @@ float arraySumVector(float *values, int N) {
   //
   // PP STUDENTS TODO: Implement your vectorized version of arraySumSerial here
   //
+  __pp_mask first = _pp_init_ones(1);
   __pp_mask maskAll = _pp_init_ones();
+  float output = 0.f;
+  __pp_vec_float result;
 
-  // for (int i = 0; i < N || (i - N < VECTOR_WIDTH && i > N); i +=
-  // VECTOR_WIDTH) {
-  //   __pp_vec_float result;
-  //   for (int a = N; a > 1; N = N / 2) {
-  //     _pp_vload_float(result, values + i, maskAll);
-  //     _pp_hadd_float(result, result);
-  //     _pp_interleave_float(result, result);
-  //   }
-  // }
+  for (int i = 0; i < N; i += VECTOR_WIDTH) {
+    __pp_vec_float temp;
+    _pp_vload_float(temp, values + i, maskAll);
 
-  return 0.0;
+    for (int a = VECTOR_WIDTH; a > 1; a = a / 2) {
+      _pp_hadd_float(temp, temp);
+      _pp_interleave_float(temp, temp);
+    }
+    _pp_vadd_float(result, result, temp, maskAll);
+  }
+
+  _pp_vstore_float(&output, result, first);
+  return output;
 }
