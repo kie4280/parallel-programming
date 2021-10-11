@@ -87,6 +87,7 @@ float arraySumVector(float *values, int N) {
   __pp_mask maskAll = _pp_init_ones();
   float output = 0.f;
   __pp_vec_float result;
+  _pp_vset_float(result, 0.f, maskAll);
 
   for (int i = 0; i < N; i += VECTOR_WIDTH) {
     __pp_vec_float temp1, temp2;
