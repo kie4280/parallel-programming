@@ -1,5 +1,5 @@
 CXX := g++
-CXXFLAGS := -I./common -std=c++17 -Wall -g -O3
+CXXFLAGS := -I./common -std=c++17 -Wall -g 
 
 ifeq (/usr/bin/g++-10,$(wildcard /usr/bin/g++-10*))
     CXX=g++-10

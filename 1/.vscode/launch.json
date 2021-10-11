@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/part1/myexp",
-            "args": [],
+            "args": ["-s", "3"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

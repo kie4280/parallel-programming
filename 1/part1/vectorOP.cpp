@@ -47,7 +47,7 @@ void clampedExpVector(float *values, int *exponents, float *output, int N) {
   // N and VECTOR_WIDTH, not just when VECTOR_WIDTH divides N
   //
 
-  __pp_mask maskActive;
+  __pp_mask maskValid;
   __pp_mask maskAll = _pp_init_ones();
 
   __pp_vec_int exp;
@@ -56,13 +56,13 @@ void clampedExpVector(float *values, int *exponents, float *output, int N) {
   __pp_vec_int one = _pp_vset_int(1);
   __pp_vec_float clamp = _pp_vset_float(9.999999f);
 
-  for (int i = 0; i < N || (i - N < VECTOR_WIDTH && i - N > 0);
-       i += VECTOR_WIDTH) {
-    maskActive = _pp_init_ones();
-    _pp_vload_int(exp, exponents + i, maskAll);
-    _pp_vload_float(vals, values + i, maskAll);
+  for (int i = 0; i < N + VECTOR_WIDTH; i += VECTOR_WIDTH) {
+    maskValid = _pp_init_ones((N - i >= VECTOR_WIDTH ? VECTOR_WIDTH : N - i));
+    _pp_vload_int(exp, exponents + i, maskValid);
+    _pp_vload_float(vals, values + i, maskValid);
     _pp_vset_float(result, 1.f, maskAll);
-
+    __pp_mask maskActive =
+        _pp_init_ones((N - i >= VECTOR_WIDTH ? VECTOR_WIDTH : N - i));
     while (_pp_cntbits(maskActive) > 0) {
       _pp_vgt_int(maskActive, exp, zero, maskAll);
       _pp_vsub_int(exp, exp, one, maskActive);
@@ -71,10 +71,8 @@ void clampedExpVector(float *values, int *exponents, float *output, int N) {
       __pp_mask needClamp;
       _pp_vgt_float(needClamp, result, clamp, maskAll);
       _pp_vset_float(result, 9.999999f, needClamp);
-
-      _pp_vlt_float(maskActive, result, clamp, maskActive);
     }
-    _pp_vstore_float(output + i, result, maskAll);
+    _pp_vstore_float(output + i, result, maskValid);
   }
 }
 
@@ -85,9 +83,17 @@ float arraySumVector(float *values, int N) {
   //
   // PP STUDENTS TODO: Implement your vectorized version of arraySumSerial here
   //
+  __pp_mask maskAll = _pp_init_ones();
 
-  for (int i = 0; i < N; i += VECTOR_WIDTH) {
-  }
+  // for (int i = 0; i < N || (i - N < VECTOR_WIDTH && i > N); i +=
+  // VECTOR_WIDTH) {
+  //   __pp_vec_float result;
+  //   for (int a = N; a > 1; N = N / 2) {
+  //     _pp_vload_float(result, values + i, maskAll);
+  //     _pp_hadd_float(result, result);
+  //     _pp_interleave_float(result, result);
+  //   }
+  // }
 
   return 0.0;
 }
