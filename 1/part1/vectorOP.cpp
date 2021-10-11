@@ -64,7 +64,7 @@ void clampedExpVector(float *values, int *exponents, float *output, int N) {
     __pp_mask maskActive =
         _pp_init_ones((N - i >= VECTOR_WIDTH ? VECTOR_WIDTH : N - i));
     while (_pp_cntbits(maskActive) > 0) {
-      _pp_vgt_int(maskActive, exp, zero, maskAll);
+      _pp_vgt_int(maskActive, exp, zero, maskValid);
       _pp_vsub_int(exp, exp, one, maskActive);
       _pp_vmult_float(result, result, vals, maskActive);
 
@@ -89,14 +89,14 @@ float arraySumVector(float *values, int N) {
   __pp_vec_float result;
 
   for (int i = 0; i < N; i += VECTOR_WIDTH) {
-    __pp_vec_float temp;
-    _pp_vload_float(temp, values + i, maskAll);
+    __pp_vec_float temp1, temp2;
+    _pp_vload_float(temp1, values + i, maskAll);
 
     for (int a = VECTOR_WIDTH; a > 1; a = a / 2) {
-      _pp_hadd_float(temp, temp);
-      _pp_interleave_float(temp, temp);
+      _pp_hadd_float(temp2, temp1);
+      _pp_interleave_float(temp1, temp2);
     }
-    _pp_vadd_float(result, result, temp, maskAll);
+    _pp_vadd_float(result, result, temp1, maskAll);
   }
 
   _pp_vstore_float(&output, result, first);
