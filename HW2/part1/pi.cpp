@@ -7,7 +7,7 @@
 #include <random>
 
 #define DEBUGGING
-#define MAX_THREADS 64
+#define MAX_THREADS 256
 
 typedef long long int LL;
 
@@ -24,6 +24,7 @@ LL num_sim = 0;
 std::random_device rd;
 
 void *monte_carlo(void *args) {
+  std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_real_distribution<float> dis(-0.5f, 0.5f);
   int index = *static_cast<int *>(args);
