@@ -41,7 +41,6 @@ void *monte_carlo(void *args) {
 
   for (LL a = 0; a < loops; ++a) {
     __m256i vec = avx_xorshift128plus(&rkey);
-
     _mm256_store_si256((__m256i *)rands, vec);
     for (int b = 0; b < 4; ++b) {
       float x = (float)rands[2 * b] / std::numeric_limits<uint32_t>::max() -
@@ -49,9 +48,7 @@ void *monte_carlo(void *args) {
             y = (float)rands[2 * b + 1] / std::numeric_limits<uint32_t>::max() -
                 0.5f;
 
-      if (x * x + y * y <= 0.25f) {
-        ++inside_sum;
-      }
+      inside_sum += (x * x + y * y <= 0.25f ? 1 : 0);
     }
   }
   return (void *)inside_sum;
