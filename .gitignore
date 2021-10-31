@@ -2,4 +2,6 @@
 HW1/part1/myexp
 *.out
 HW2/part2/mandelbrot
+HW2/out
+HW2/part2/*.ppm
 
