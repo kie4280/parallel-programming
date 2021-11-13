@@ -48,21 +48,26 @@ void conj_grad(int colidx[], int rowstr[], double x[], double z[], double a[],
     //       unrolled-by-two version is some 10% faster.
     //       The unrolled-by-8 version below is significantly faster
     //       on the Cray t3d - overall speed of code is 1.5 times faster.
+    d = 0.0;
+
     for (j = 0; j < lastrow - firstrow + 1; j++) {
       sum = 0.0;
       for (k = rowstr[j]; k < rowstr[j + 1]; k++) {
         sum = sum + a[k] * p[colidx[k]];
       }
       q[j] = sum;
+      d = d + p[j] * q[j];
+
     }
 
     //---------------------------------------------------------------------
     // Obtain p.q
     //---------------------------------------------------------------------
-    d = 0.0;
-    for (j = 0; j < lastcol - firstcol + 1; j++) {
-      d = d + p[j] * q[j];
-    }
+    // modified
+    // d = 0.0;
+    // for (j = 0; j < lastcol - firstcol + 1; j++) {
+    //   d = d + p[j] * q[j];
+    // }
 
     //---------------------------------------------------------------------
     // Obtain alpha = rho / (p.q)
@@ -112,7 +117,7 @@ void conj_grad(int colidx[], int rowstr[], double x[], double z[], double a[],
   //---------------------------------------------------------------------
   sum = 0.0;
 
-#pragma omp parallel for private(k, d)
+  // #pragma omp parallel for private(k, d)
 
   for (j = 0; j < lastrow - firstrow + 1; j++) {
     d = 0.0;
@@ -209,7 +214,8 @@ void sparse(double a[], int colidx[], int rowstr[], int n, int nz, int nozer,
             int firstrow, int lastrow, int nzloc[], double rcond,
             double shift) {
   int nrows;
-
+  timer_clear(60);
+  timer_start(60);
   //---------------------------------------------------
   // generate a sparse matrix from a list of
   // [col, row, element] tri
@@ -269,7 +275,15 @@ void sparse(double a[], int colidx[], int rowstr[], int n, int nz, int nozer,
   size = 1.0;
   ratio = pow(rcond, (1.0 / (double)(n)));
 
+
+  // ---------------timer------------------
+  timer_stop(60);
+  double aaa = timer_read(60);
+  printf("elapsed %f", aaa);
+  // -----------------------------------
+
   for (i = 0; i < n; i++) {
+  #pragma omp parallel for private(nza, j, scale, nzrow, jcol, va, cont40, k, kk) firstprivate(size, ratio)
     for (nza = 0; nza < arow[i]; nza++) {
       j = acol[i][nza];
 
@@ -324,6 +338,8 @@ void sparse(double a[], int colidx[], int rowstr[], int n, int nz, int nozer,
     }
     size = size * ratio;
   }
+
+
 
   //---------------------------------------------------------------------
   // ... remove empty entries and generate final results
