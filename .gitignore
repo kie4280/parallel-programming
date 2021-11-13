@@ -4,4 +4,7 @@ HW1/part1/myexp
 HW2/part2/mandelbrot
 HW2/out
 HW2/part2/*.ppm
+HW3/part1/*.o
+HW3/part1/cg
+HW3/part1/cg_grader
 
