@@ -25,6 +25,8 @@ void conj_grad(int colidx[], int rowstr[], double x[], double z[], double a[],
   // rho = r.r
   // Now, obtain the norm of r: First, sum squares of r elements locally...
   //---------------------------------------------------------------------
+
+  // #pragma omp parallel for reduction(+:rho)
   for (j = 0; j < lastcol - firstcol + 1; j++) {
     rho = rho + r[j] * r[j];
   }
@@ -109,6 +111,9 @@ void conj_grad(int colidx[], int rowstr[], double x[], double z[], double a[],
   // The partition submatrix-vector multiply
   //---------------------------------------------------------------------
   sum = 0.0;
+
+#pragma omp parallel for private(k, d)
+
   for (j = 0; j < lastrow - firstrow + 1; j++) {
     d = 0.0;
     for (k = rowstr[j]; k < rowstr[j + 1]; k++) {
@@ -222,21 +227,15 @@ void sparse(double a[], int colidx[], int rowstr[], int n, int nz, int nozer,
   // ...count the number of triples in each row
   //---------------------------------------------------------------------
 
-#pragma omp parallel
-  {
-#pragma omp for
-    for (j = 0; j < nrows + 1; j++) {
-      rowstr[j] = 0;
-    }
+  for (j = 0; j < nrows + 1; j++) {
+    rowstr[j] = 0;
   }
-
   for (i = 0; i < n; i++) {
     for (nza = 0; nza < arow[i]; nza++) {
-      j = acol[i][nza] + 1;
+      int j = acol[i][nza] + 1;
       rowstr[j] = rowstr[j] + arow[i];
     }
   }
-
   rowstr[0] = 0;
   for (j = 1; j < nrows + 1; j++) {
     rowstr[j] = rowstr[j] + rowstr[j - 1];
