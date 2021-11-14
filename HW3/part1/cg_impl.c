@@ -11,6 +11,9 @@ void conj_grad(int colidx[], int rowstr[], double x[], double z[], double a[],
 
   rho = 0.0;
 
+  // timer_clear(60);
+  // timer_start(60);
+
   //---------------------------------------------------------------------
   // Initialize the CG algorithm:
   //---------------------------------------------------------------------
@@ -57,7 +60,6 @@ void conj_grad(int colidx[], int rowstr[], double x[], double z[], double a[],
       }
       q[j] = sum;
       d = d + p[j] * q[j];
-
     }
 
     //---------------------------------------------------------------------
@@ -87,55 +89,65 @@ void conj_grad(int colidx[], int rowstr[], double x[], double z[], double a[],
     for (j = 0; j < lastcol - firstcol + 1; j++) {
       z[j] = z[j] + alpha * p[j];
       r[j] = r[j] - alpha * q[j];
-    }
-
-    //---------------------------------------------------------------------
-    // rho = r.r
-    // Now, obtain the norm of r: First, sum squares of r elements locally...
-    //---------------------------------------------------------------------
-    for (j = 0; j < lastcol - firstcol + 1; j++) {
       rho = rho + r[j] * r[j];
-    }
-
-    //---------------------------------------------------------------------
-    // Obtain beta:
-    //---------------------------------------------------------------------
-    beta = rho / rho0;
-
-    //---------------------------------------------------------------------
-    // p = r + beta*p
-    //---------------------------------------------------------------------
-    for (j = 0; j < lastcol - firstcol + 1; j++) {
       p[j] = r[j] + beta * p[j];
     }
-  }  // end of do cgit=1,cgitmax
+  
 
   //---------------------------------------------------------------------
-  // Compute residual norm explicitly:  ||r|| = ||x - A.z||
-  // First, form A.z
-  // The partition submatrix-vector multiply
+  // rho = r.r
+  // Now, obtain the norm of r: First, sum squares of r elements locally...
   //---------------------------------------------------------------------
-  sum = 0.0;
+  // for (j = 0; j < lastcol - firstcol + 1; j++) {
+  //   rho = rho + r[j] * r[j];
+  // }
 
-  // #pragma omp parallel for private(k, d)
+  //---------------------------------------------------------------------
+  // Obtain beta:
+  //---------------------------------------------------------------------
+  beta = rho / rho0;
 
-  for (j = 0; j < lastrow - firstrow + 1; j++) {
-    d = 0.0;
-    for (k = rowstr[j]; k < rowstr[j + 1]; k++) {
-      d = d + a[k] * z[colidx[k]];
-    }
-    r[j] = d;
+  //---------------------------------------------------------------------
+  // p = r + beta*p
+  //---------------------------------------------------------------------
+  // for (j = 0; j < lastcol - firstcol + 1; j++) {
+  //   p[j] = r[j] + beta * p[j];
+  // }
+}  // end of do cgit=1,cgitmax
+
+// ---------------timer------------------
+// timer_stop(60);
+// double aaa = timer_read(60);
+// printf("elapsed %f", aaa);
+// -----------------------------------
+
+//---------------------------------------------------------------------
+// Compute residual norm explicitly:  ||r|| = ||x - A.z||
+// First, form A.z
+// The partition submatrix-vector multiply
+//---------------------------------------------------------------------
+sum = 0.0;
+
+// #pragma omp parallel for private(k, d)
+
+for (j = 0; j < lastrow - firstrow + 1; j++) {
+  d = 0.0;
+  for (k = rowstr[j]; k < rowstr[j + 1]; k++) {
+    d = d + a[k] * z[colidx[k]];
   }
+  r[j] = d;
+}
 
-  //---------------------------------------------------------------------
-  // At this point, r contains A.z
-  //---------------------------------------------------------------------
-  for (j = 0; j < lastcol - firstcol + 1; j++) {
-    d = x[j] - r[j];
-    sum = sum + d * d;
-  }
+//---------------------------------------------------------------------
+// At this point, r contains A.z
+//---------------------------------------------------------------------
+// #pragma omp parallel for reduction(+:sum) private(d)
+for (j = 0; j < lastcol - firstcol + 1; j++) {
+  d = x[j] - r[j];
+  sum = sum + d * d;
+}
 
-  *rnorm = sqrt(sum);
+*rnorm = sqrt(sum);
 }
 
 //---------------------------------------------------------------------
@@ -214,8 +226,7 @@ void sparse(double a[], int colidx[], int rowstr[], int n, int nz, int nozer,
             int firstrow, int lastrow, int nzloc[], double rcond,
             double shift) {
   int nrows;
-  timer_clear(60);
-  timer_start(60);
+
   //---------------------------------------------------
   // generate a sparse matrix from a list of
   // [col, row, element] tri
@@ -275,15 +286,9 @@ void sparse(double a[], int colidx[], int rowstr[], int n, int nz, int nozer,
   size = 1.0;
   ratio = pow(rcond, (1.0 / (double)(n)));
 
-
-  // ---------------timer------------------
-  timer_stop(60);
-  double aaa = timer_read(60);
-  printf("elapsed %f", aaa);
-  // -----------------------------------
-
   for (i = 0; i < n; i++) {
-  #pragma omp parallel for private(nza, j, scale, nzrow, jcol, va, cont40, k, kk) firstprivate(size, ratio)
+#pragma omp parallel for private(nza, j, scale, nzrow, jcol, va, cont40, k, \
+                                 kk) firstprivate(size, ratio)
     for (nza = 0; nza < arow[i]; nza++) {
       j = acol[i][nza];
 
@@ -338,8 +343,6 @@ void sparse(double a[], int colidx[], int rowstr[], int n, int nz, int nozer,
     }
     size = size * ratio;
   }
-
-
 
   //---------------------------------------------------------------------
   // ... remove empty entries and generate final results

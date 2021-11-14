@@ -7,4 +7,7 @@ HW2/part2/*.ppm
 HW3/part1/*.o
 HW3/part1/cg
 HW3/part1/cg_grader
+HW3/part2/graphs/**
+HW3/part2/page_rank/pr
+HW3/part2/page_rank/pr_grader
 
