@@ -46,8 +46,10 @@ void top_down_step(Graph g, vertex_set *frontier, vertex_set *new_frontier,
           distances[outgoing] = distances[node] + 1;
           int index;
 #pragma omp atomic capture
-          { index = new_frontier->count;
-          new_frontier->count++; }
+          {
+            index = new_frontier->count;
+            new_frontier->count++;
+          }
           new_frontier->vertices[index] = outgoing;
         }
       }
@@ -96,8 +98,8 @@ void bfs_top_down(Graph graph, solution *sol) {
   }
 }
 
-void bottom_up_step(Graph g, vertex_set *frontier, vertex_set *new_frontier,
-                    int f_num, vertex_set *unvisited, int *distances) {
+void bottom_up_step(Graph g, vertex_set *frontier, int f_num,
+                    vertex_set *unvisited, int *distances) {
   // #pragma omp parallel for
   //   for (int i = 0; i < frontier->count; ++i) {
   //     int front = frontier->vertices[i];
@@ -131,7 +133,6 @@ void bottom_up_step(Graph g, vertex_set *frontier, vertex_set *new_frontier,
 #pragma omp parallel for
   // for (int n = 0; n < unvisited->count; ++n) {
   for (int node = 0; node < g->num_nodes; ++node) {
-
     // int node = unvisited->vertices[n];
     if (distances[node] != NOT_VISITED_MARKER) continue;
     int start_edge = g->incoming_starts[node];
@@ -144,9 +145,10 @@ void bottom_up_step(Graph g, vertex_set *frontier, vertex_set *new_frontier,
       if (frontier->vertices[incoming] == f_num) {
         distances[node] = distances[incoming] + 1;
 
-        new_frontier->vertices[node] = f_num + 1;
+        frontier->vertices[node] = f_num + 1;
 #pragma omp atomic
-        ++new_frontier->count;
+        ++frontier->count;
+        break;
       }
     }
   }
@@ -167,19 +169,15 @@ void bfs_bottom_up(Graph graph, solution *sol) {
 
   vertex_set list1;
   vertex_set list2;
-  vertex_set list3;
   vertex_set_init(&list1, graph->num_nodes);
   vertex_set_init(&list2, graph->num_nodes);
-  vertex_set_init(&list3, graph->num_nodes);
 
   vertex_set *frontier = &list1;
-  vertex_set *new_frontier = &list2;
-  vertex_set *unvisited = &list3;
+  vertex_set *unvisited = &list2;
   // initialize all nodes to NOT_VISITED
   for (int i = 0; i < graph->num_nodes; i++) {
     sol->distances[i] = NOT_VISITED_MARKER;
     frontier->vertices[i] = -1;
-    new_frontier->vertices[i] = -1;
     unvisited->vertices[i] = i;
   }
   unvisited->count = graph->num_nodes;
@@ -193,19 +191,14 @@ void bfs_bottom_up(Graph graph, solution *sol) {
     double start_time = CycleTimer::currentSeconds();
 #endif
 
-    new_frontier->count = 0;
-
-    bottom_up_step(graph, frontier, new_frontier, f_num++, unvisited,
-                   sol->distances);
+    frontier->count = 0;
+    bottom_up_step(graph, frontier, f_num++, unvisited, sol->distances);
 
 #ifdef VERBOSE
     double end_time = CycleTimer::currentSeconds();
     printf("frontier=%-10d %.4f sec\n", frontier->count, end_time - start_time);
 #endif
     // swap pointers
-    vertex_set *tmp = frontier;
-    frontier = new_frontier;
-    new_frontier = tmp;
   }
 }
 
