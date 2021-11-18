@@ -18,7 +18,7 @@
 
 // #define VERBOSE
 
-#define TB_RATIO 0.6
+#define TB_RATIO 0.1
 
 void vertex_set_clear(vertex_set *list) { list->count = 0; }
 
@@ -105,10 +105,10 @@ void bfs_top_down(Graph graph, solution *sol) {
 
 void bottom_up_step(Graph g, int f_num, int *distances, int *f_count) {
   int fc = 0;
+  int f_next = f_num + 1;
 #pragma omp parallel for reduction(+ : fc)
-  // for (int n = 0; n < unvisited->count; ++n) {
+
   for (int node = 1; node < g->num_nodes; ++node) {
-    // int node = unvisited->vertices[n];
     if (distances[node] != NOT_VISITED_MARKER) continue;
     int start_edge = g->incoming_starts[node];
     int end_edge = (node == g->num_nodes - 1) ? g->num_edges
@@ -118,8 +118,7 @@ void bottom_up_step(Graph g, int f_num, int *distances, int *f_count) {
       int incoming = g->incoming_edges[neighbor];
 
       if (distances[incoming] == f_num) {
-        distances[node] = f_num + 1;
-
+        distances[node] = f_next;
         ++fc;
         goto has_parent;
       }
@@ -131,28 +130,29 @@ void bottom_up_step(Graph g, int f_num, int *distances, int *f_count) {
 }
 
 void bfs_bottom_up(Graph graph, solution *sol) {
-// For PP students:
-//
-// You will need to implement the "bottom up" BFS here as
-// described in the handout.
-//
-// As a result of your code's execution, sol.distances should be
-// correctly populated for all nodes in the graph.
-//
-// As was done in the top-down case, you may wish to organize your
-// code by creating subroutine bottom_up_step() that is called in
-// each step of the BFS process.
+  // For PP students:
+  //
+  // You will need to implement the "bottom up" BFS here as
+  // described in the handout.
+  //
+  // As a result of your code's execution, sol.distances should be
+  // correctly populated for all nodes in the graph.
+  //
+  // As was done in the top-down case, you may wish to organize your
+  // code by creating subroutine bottom_up_step() that is called in
+  // each step of the BFS process.
 
-// vertex_set list1;
-// vertex_set list2;
+  // vertex_set list1;
+  // vertex_set list2;
 
-// vertex_set_init(&list1, graph->num_nodes);
-// vertex_set_init(&list2, graph->num_nodes);
+  // vertex_set_init(&list1, graph->num_nodes);
+  // vertex_set_init(&list2, graph->num_nodes);
 
-// vertex_set *frontier = &list1;
-// vertex_set *new_frontier = &list2;
+  // vertex_set *frontier = &list1;
+  // vertex_set *new_frontier = &list2;
 
-// initialize all nodes to NOT_VISITED
+  // initialize all nodes to NOT_VISITED
+
 #pragma omp parallel for
   for (int i = 0; i < graph->num_nodes; i++) {
     sol->distances[i] = NOT_VISITED_MARKER;
