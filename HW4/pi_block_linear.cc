@@ -36,9 +36,10 @@ int main(int argc, char **argv) {
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
+  std::random_device rd;
   xorshift128p_state rs;
   rs.x[0] = world_rank << 4;
-  rs.x[1] = time(NULL);
+  rs.x[1] = rd();
   long long int toss = tosses / world_size + 1;
   long long int hit = 0;
   for (long long int i = 0; i < toss / 2; ++i) {
@@ -58,13 +59,13 @@ int main(int argc, char **argv) {
     MPI_Send(&hit, 1, MPI_LONG_LONG_INT, 0, 0, MPI_COMM_WORLD);
   } else if (world_rank == 0) {
     // TODO: master
-    // MPI_Send(&hit, 1, MPI_LONG_LONG_INT, 0, 0, MPI_COMM_WORLD);
+    MPI_Send(&hit, 1, MPI_LONG_LONG_INT, 0, 0, MPI_COMM_WORLD);
   }
 
   if (world_rank == 0) {
     // TODO: process PI result
-    // hit = 0;
-    for (int a = 1; a < world_size; ++a) {
+    hit = 0;
+    for (int a = 0; a < world_size; ++a) {
       long long int hh = 0;
       MPI_Status status;
       MPI_Recv(&hh, 1, MPI_LONG_LONG_INT, a, 0, MPI_COMM_WORLD, &status);
