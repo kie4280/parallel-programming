@@ -87,7 +87,7 @@ void matrix_multiply(const int n, const int m, const int l, const int *a_mat,
   for (int a = row_start; a < row_end; ++a) {
     for (int i = 0; i < l; ++i) {
       for (int k = 0; k < m; ++k) {
-        rr[(a - row_start) * l + i] += a_mat[a * m + k] * b_mat[i + m * k];
+        rr[(a - row_start) * l + i] += a_mat[a * m + k] * b_mat[i + l * k];
       }
     }
   }
