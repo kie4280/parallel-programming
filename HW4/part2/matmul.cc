@@ -3,6 +3,15 @@
 #include <iostream>
 #include <string>
 
+// #define DEBUG
+
+template <typename T>
+inline void print(T a) {
+#ifdef DEBUG
+  std::cout << a << std::endl;
+#endif
+}
+
 // Read size of matrix_a and matrix_b (n, m, l) and whole data of matrixes from
 // stdin
 //
@@ -18,6 +27,7 @@ void construct_matrices(int *n_ptr, int *m_ptr, int *l_ptr, int **a_mat_ptr,
   int world_size, world_rank;
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+  // std::cout <<"get data" << std::endl;
 
   if (world_rank == 0) {
     if (std::cin.good()) {
@@ -61,6 +71,8 @@ void construct_matrices(int *n_ptr, int *m_ptr, int *l_ptr, int **a_mat_ptr,
     MPI_Bcast(*a_mat_ptr, n * m, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(*b_mat_ptr, m * l, MPI_INT, 0, MPI_COMM_WORLD);
   }
+
+  print("get complete");
 }
 
 // Just matrix multiplication (your should output the result in this function)
@@ -75,8 +87,7 @@ void matrix_multiply(const int n, const int m, const int l, const int *a_mat,
   int world_size, world_rank;
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-  // std::cout << "greatings " << world_rank << " " << n << " " << m << " " << l
-  //           << std::endl;
+
   int rows = n / world_size + 1;
   int row_start = world_rank * rows;
   int row_end = (world_rank + 1) * rows;
@@ -91,7 +102,7 @@ void matrix_multiply(const int n, const int m, const int l, const int *a_mat,
       }
     }
   }
-  // std::cout << "mult complete" << std::endl;
+  print("mult complete");
 
   int *result_buf = nullptr;
   MPI_Request *requests = nullptr;
@@ -112,16 +123,14 @@ void matrix_multiply(const int n, const int m, const int l, const int *a_mat,
       // std::cout << "irecv" << std::endl;
     }
   }
-
+  // std::cout << "send" << std::endl;
   MPI_Send(rr, elements, MPI_INT, 0, 0, MPI_COMM_WORLD);
-  // std::cout << "send complete" << std::endl;
 
   if (world_rank == 0) {
     MPI_Status *status = new MPI_Status[world_size];
     MPI_Waitall(world_size, requests, status);
 
     for (int a = 0; a < n; ++a) {
-      // std::cout << "nonblocking recv" << std::endl;
 
       for (int b = 0; b < l; ++b) {
         std::cout << result_buf[a * l + b] << " ";
