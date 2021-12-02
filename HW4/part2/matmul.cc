@@ -3,7 +3,7 @@
 #include <iostream>
 #include <string>
 
-// #define DEBUG
+#define DEBUG
 
 template <typename T>
 inline void print(T a) {
@@ -29,7 +29,12 @@ void construct_matrices(int *n_ptr, int *m_ptr, int *l_ptr, int **a_mat_ptr,
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
   // std::cout <<"get data" << std::endl;
 
+  MPI_Request req;
+  double start = MPI_Wtime();
+
   if (world_rank == 0) {
+    std::ios_base::sync_with_stdio(false);
+    std::cin.tie(NULL);
     if (std::cin.good()) {
       std::cin >> n >> m >> l;
       *n_ptr = n;
@@ -52,27 +57,47 @@ void construct_matrices(int *n_ptr, int *m_ptr, int *l_ptr, int **a_mat_ptr,
         }
       }
     }
+
     MPI_Bcast(&m, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&l, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-    MPI_Bcast(*a_mat_ptr, n * m, MPI_INT, 0, MPI_COMM_WORLD);
+    int rows = n / world_size;
+    int scatter_size = rows * m;
+    int *tmp = new int[scatter_size];
+    MPI_Iscatter(*a_mat_ptr, scatter_size, MPI_INT, tmp, scatter_size, MPI_INT,
+                 0, MPI_COMM_WORLD, &req);
     MPI_Bcast(*b_mat_ptr, m * l, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Status stat;
+    MPI_Wait(&req, &stat);
+    delete[] tmp;
 
   } else {
+    // MPI_Status stat;
+    // MPI_Recv(&m, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &stat);
+    // MPI_Recv(&n, 1, MPI_INT, 0, 1, MPI_COMM_WORLD, &stat);
+    // MPI_Recv(&l, 1, MPI_INT, 0, 2, MPI_COMM_WORLD, &stat);
     MPI_Bcast(&m, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&l, 1, MPI_INT, 0, MPI_COMM_WORLD);
     *n_ptr = n;
     *m_ptr = m;
     *l_ptr = l;
-    *a_mat_ptr = new int[n * m];
-    *b_mat_ptr = new int[m * l];
-    MPI_Bcast(*a_mat_ptr, n * m, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(*b_mat_ptr, m * l, MPI_INT, 0, MPI_COMM_WORLD);
-  }
+    int rows = n / world_size;
+    int scatter_size = rows * m;
 
-  print("get complete");
+    *a_mat_ptr = new int[scatter_size];
+    *b_mat_ptr = new int[m * l];
+    // MPI_Recv(*a_mat_ptr, n * m, MPI_INT, 0, 3, MPI_COMM_WORLD, &stat);
+    // MPI_Recv(*b_mat_ptr, m * l, MPI_INT, 0, 4, MPI_COMM_WORLD, &stat);
+    MPI_Iscatter(0, 0, MPI_INT, *a_mat_ptr, scatter_size, MPI_INT, 0,
+                 MPI_COMM_WORLD, &req);
+    MPI_Bcast(*b_mat_ptr, m * l, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Status stat;
+    MPI_Wait(&req, &stat);
+  }
+  start = MPI_Wtime() - start;
+
+  print("get complete" + std::to_string(start));
 }
 
 // Just matrix multiplication (your should output the result in this function)
@@ -87,62 +112,75 @@ void matrix_multiply(const int n, const int m, const int l, const int *a_mat,
   int world_size, world_rank;
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+  double start = MPI_Wtime();
 
-  int rows = n / world_size + 1;
-  int row_start = world_rank * rows;
-  int row_end = (world_rank + 1) * rows;
-  row_end = row_end > n ? n : row_end;
-  int elements = l * (row_end - row_start);
+  int rows = n / world_size;
+  int elements = rows * l;
+
   int *rr = new int[elements]();
+  // int *B_trans = new int[l*m];
+  // for (int a=0; a<m; ++a) {
+  //   for (int b=0; b<l; ++b) {
+  //     B_trans[a*l+b] = b_mat[]
+  //   }
+  // }
 
-  for (int a = row_start; a < row_end; ++a) {
+  for (int a = 0; a < rows; ++a) {
+    int a2 = a * m;
     for (int i = 0; i < l; ++i) {
+      int a1 = a * l + i;
       for (int k = 0; k < m; ++k) {
-        rr[(a - row_start) * l + i] += a_mat[a * m + k] * b_mat[i + l * k];
+        rr[a1] += a_mat[a2 + k] * b_mat[i + l * k];
       }
     }
   }
-  print("mult complete");
+  start = MPI_Wtime() - start;
+
+  print("mult complete " + std::to_string(start));
 
   int *result_buf = nullptr;
-  MPI_Request *requests = nullptr;
+  MPI_Request req;
 
   if (world_rank == 0) {
-    result_buf = new int[n * l];
-    int *handle = result_buf;
-    requests = new MPI_Request[world_size];
-
-    for (int a = 0; a < world_size; ++a) {
-      int row_start = world_rank * rows;
-      int row_end = (world_rank + 1) * rows;
-      row_end = row_end > n ? n : row_end;
-      int elements = l * (row_end - row_start);
-
-      MPI_Irecv(handle, elements, MPI_INT, a, 0, MPI_COMM_WORLD, requests + a);
-      handle += elements;
-      // std::cout << "irecv" << std::endl;
-    }
+    result_buf = new int[n * l]();
   }
   // std::cout << "send" << std::endl;
-  MPI_Send(rr, elements, MPI_INT, 0, 0, MPI_COMM_WORLD);
-
+  MPI_Igather(rr, elements, MPI_INT, result_buf, elements, MPI_INT, 0,
+              MPI_COMM_WORLD, &req);
+  print("gather");
   if (world_rank == 0) {
-    MPI_Status *status = new MPI_Status[world_size];
-    MPI_Waitall(world_size, requests, status);
+    for (int a = rows * world_size; a < n; ++a) {
+      int a2 = a * m;
+      for (int i = 0; i < l; ++i) {
+        int a1 = a * l + i;
+        for (int k = 0; k < m; ++k) {
+          result_buf[a1] += a_mat[a2 + k] * b_mat[i + l * k];
+        }
+      }
+    }
+    MPI_Status stat;
+
+    MPI_Wait(&req, &stat);
 
     for (int a = 0; a < n; ++a) {
-
       for (int b = 0; b < l; ++b) {
+#ifndef DEBUG
         std::cout << result_buf[a * l + b] << " ";
+#endif
       }
+#ifndef DEBUG
       std::cout << std::endl;
+#endif
     }
+  } else {
+    MPI_Status stat;
 
-    delete[] result_buf;
-    delete[] requests;
-    delete[] status;
+    MPI_Wait(&req, &stat);
   }
 
+  if (world_rank == 0) {
+    delete[] result_buf;
+  }
   delete[] rr;
 }
 

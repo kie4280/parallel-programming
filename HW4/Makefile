@@ -1,7 +1,7 @@
 
 matmul: main.cc matmul.cc
-	mpicxx -c main.cc matmul.cc
-	mpicxx main.o matmul.o -o matmul
+	mpicxx -c -O2 main.cc matmul.cc
+	mpicxx -O2 main.o matmul.o -o matmul
 	rm main.o matmul.o
 
 hello:
