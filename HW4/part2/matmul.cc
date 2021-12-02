@@ -3,7 +3,7 @@
 #include <iostream>
 #include <string>
 
-#define DEBUG
+// #define DEBUG
 
 template <typename T>
 inline void print(T a) {
@@ -53,11 +53,11 @@ void construct_matrices(int *n_ptr, int *m_ptr, int *l_ptr, int **a_mat_ptr,
         for (int b = 0; b < l; ++b) {
           int i;
           std::cin >> i;
-          (*b_mat_ptr)[a * l + b] = i;
+          (*b_mat_ptr)[b * m + a] = i;
         }
       }
     }
-
+    print("read complete");
     MPI_Bcast(&m, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&l, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -66,6 +66,7 @@ void construct_matrices(int *n_ptr, int *m_ptr, int *l_ptr, int **a_mat_ptr,
     int *tmp = new int[scatter_size];
     MPI_Iscatter(*a_mat_ptr, scatter_size, MPI_INT, tmp, scatter_size, MPI_INT,
                  0, MPI_COMM_WORLD, &req);
+
     MPI_Bcast(*b_mat_ptr, m * l, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Status stat;
     MPI_Wait(&req, &stat);
@@ -118,19 +119,14 @@ void matrix_multiply(const int n, const int m, const int l, const int *a_mat,
   int elements = rows * l;
 
   int *rr = new int[elements]();
-  // int *B_trans = new int[l*m];
-  // for (int a=0; a<m; ++a) {
-  //   for (int b=0; b<l; ++b) {
-  //     B_trans[a*l+b] = b_mat[]
-  //   }
-  // }
 
   for (int a = 0; a < rows; ++a) {
     int a2 = a * m;
     for (int i = 0; i < l; ++i) {
       int a1 = a * l + i;
+      int a3 = i * m;
       for (int k = 0; k < m; ++k) {
-        rr[a1] += a_mat[a2 + k] * b_mat[i + l * k];
+        rr[a1] += a_mat[a2 + k] * b_mat[a3 + k];
       }
     }
   }
@@ -153,8 +149,9 @@ void matrix_multiply(const int n, const int m, const int l, const int *a_mat,
       int a2 = a * m;
       for (int i = 0; i < l; ++i) {
         int a1 = a * l + i;
+        int a3 = i * m;
         for (int k = 0; k < m; ++k) {
-          result_buf[a1] += a_mat[a2 + k] * b_mat[i + l * k];
+          result_buf[a1] += a_mat[a2 + k] * b_mat[a3 + k];
         }
       }
     }
