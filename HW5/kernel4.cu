@@ -4,8 +4,8 @@
 
 #include <iostream>
 
-#define threadsPerBlock 64
-#define pixelPerThread 4
+#define threadsPerBlock 32
+#define pixelPerThread 1
 
 template <typename T>
 void print(T a) {
@@ -62,8 +62,10 @@ void hostFE(float upperX, float upperY, float lowerX, float lowerY, int *img,
   mandelKernel<<<blocks, threadsPerBlock>>>(lowerX, lowerY, devMem, thrPerRow,
                                             resY, stepX, stepY, pitch,
                                             maxIterations);
-  cudaHostAlloc(&buf, blocks * threadsPerBlock * pixelPerThread * sizeof(int),
-                cudaHostAllocDefault);
+  // cudaHostAlloc(&buf, blocks * threadsPerBlock * pixelPerThread *
+  // sizeof(int),
+  //               cudaHostAllocDefault);
+  buf = (int *)malloc(blocks * threadsPerBlock * pixelPerThread * sizeof(int));
   cudaMemcpy2D(buf, sizeof(int) * resX, devMem, pitch, resX * sizeof(int), resY,
                cudaMemcpyDeviceToHost);
   // cudaDeviceSynchronize();
@@ -73,6 +75,6 @@ void hostFE(float upperX, float upperY, float lowerX, float lowerY, int *img,
   }
 
   cudaFree(devMem);
-  cudaFree(buf);
-  // free(buf);
+  // cudaFree(buf);
+  free(buf);
 }
