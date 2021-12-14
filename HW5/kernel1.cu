@@ -4,7 +4,8 @@
 
 #include <iostream>
 
-#define threadsPerBlock 128
+#define blockWidth 8
+#define blockHeight 8
 
 template <typename T>
 void print(T a) {
@@ -32,14 +33,16 @@ __global__ void mandelKernel(float upperX, float upperY, float lowerX,
   // To avoid error caused by the floating number, use the following pseudo code
   //
 
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
-  int rowY = id / resX;
-  int rowX = id - rowY * resX;
+  int rowX = blockIdx.x * blockDim.x + threadIdx.x;
+  int rowY = blockIdx.y * blockDim.y + threadIdx.y;
 
   float x = lowerX + rowX * stepX;
   float y = lowerY + rowY * stepY;
-
-  buf[id] = mandel(x, y, maxIterations);
+  // __syncthreads();
+  if (rowX >= resX || rowY >= resY) {
+    return;
+  }
+  buf[rowY * resX + rowX] = mandel(x, y, maxIterations);
 }
 
 // Host front-end function that allocates the memory and launches the GPU kernel
@@ -48,14 +51,17 @@ void hostFE(float upperX, float upperY, float lowerX, float lowerY, int* img,
   float stepX = (upperX - lowerX) / resX;
   float stepY = (upperY - lowerY) / resY;
 
-  int blocks = resX * resY / threadsPerBlock + 1;
+  int block_x = resX / blockWidth + 1;
+  int block_y = resY / blockHeight + 1;
+
   int* buf = (int*)malloc(resX * resY * sizeof(int));
   int* cudaMem;
-
-  cudaMalloc((void**)&cudaMem, blocks * threadsPerBlock * sizeof(int));
-  mandelKernel<<<blocks, threadsPerBlock>>>(upperX, upperY, lowerX, lowerY,
-                                            cudaMem, resX, resY, stepX, stepY,
-                                            maxIterations);
+  dim3 TB(blockWidth, blockHeight);
+  dim3 BG(block_x, block_y);
+  cudaMalloc((void**)&cudaMem,
+             block_x * block_y * blockWidth * blockHeight * sizeof(int));
+  mandelKernel<<<BG, TB>>>(upperX, upperY, lowerX, lowerY, cudaMem, resX, resY,
+                           stepX, stepY, maxIterations);
   cudaMemcpy(buf, cudaMem, resX * resY * sizeof(int), cudaMemcpyDeviceToHost);
 
   for (int a = 0; a < resX * resY; ++a) {

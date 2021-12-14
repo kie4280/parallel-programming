@@ -4,7 +4,8 @@
 
 #include <iostream>
 
-#define threadsPerBlock 512
+#define blockWidth 8
+#define blockHeight 4
 
 template <typename T>
 void print(T a) {
@@ -33,14 +34,15 @@ __global__ void mandelKernel(float upperX, float upperY, float lowerX,
   // To avoid error caused by the floating number, use the following pseudo code
   //
 
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
-
-  int rowY = id / resX;
-  int rowX = id - rowY * resX;
+  int rowX = blockIdx.x * blockDim.x + threadIdx.x;
+  int rowY = blockIdx.y * blockDim.y + threadIdx.y;
 
   float x = lowerX + rowX * stepX;
   float y = lowerY + rowY * stepY;
-
+  // __syncthreads();
+  if (rowX >= resX || rowY >= resY) {
+    return;
+  }
   *((int *)((char *)buf + rowY * pitch) + rowX) = mandel(x, y, maxIterations);
 }
 
@@ -50,19 +52,19 @@ void hostFE(float upperX, float upperY, float lowerX, float lowerY, int *img,
   float stepX = (upperX - lowerX) / resX;
   float stepY = (upperY - lowerY) / resY;
 
-  int blocks = resX * resY / threadsPerBlock + 1;
+  int block_x = resX / blockWidth + 1;
+  int block_y = resY / blockHeight + 1;
+
   int *buf, *devMem;
 
-
+  dim3 TB(blockWidth, blockHeight);
+  dim3 GB(block_x, block_y);
   size_t pitch;
-  cudaMallocPitch((void **)&devMem, &pitch, resX * sizeof(int),
-                  (blocks * threadsPerBlock / resX));
+  cudaMallocPitch((void **)&devMem, &pitch, resX * sizeof(int), resY);
 
-  mandelKernel<<<blocks, threadsPerBlock>>>(upperX, upperY, lowerX, lowerY,
-                                            devMem, resX, resY, stepX, stepY,
-                                            pitch, maxIterations);
-  cudaHostAlloc(&buf, blocks * threadsPerBlock * sizeof(int),
-                cudaHostAllocDefault);
+  mandelKernel<<<GB, TB>>>(upperX, upperY, lowerX, lowerY, devMem, resX, resY,
+                           stepX, stepY, pitch, maxIterations);
+  cudaHostAlloc(&buf, resX * resY * sizeof(int), cudaHostAllocDefault);
   cudaMemcpy2D(buf, sizeof(int) * resX, devMem, pitch, resX * sizeof(int), resY,
                cudaMemcpyDeviceToHost);
 
