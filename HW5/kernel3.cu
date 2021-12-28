@@ -35,15 +35,19 @@ __global__ void mandelKernel(float lowerX, float lowerY, int *buf, int resX,
 
   int rowX = blockIdx.x * blockDim.x + threadIdx.x;
   int rowY = blockIdx.y * blockDim.y + threadIdx.y;
-  float y = lowerY + rowY * stepY;
-  int *row = (int *)((char *)buf + rowY * pitch);
-  int start = pixelPerThread * rowX;
+  int res[pixelPerThread];
+  int basey = rowY * pixelPerThread;
 
+  float x = lowerX + rowX * stepX;
   for (int a = 0; a < pixelPerThread; ++a) {
-    int inx = (start + a);
-    if (inx >= resX) break;
-    float x = lowerX + inx * stepX;
-    row[inx] = mandel(x, y, maxIterations);
+    int inx = (basey + a);
+    float y = lowerY + inx * stepY;
+
+    res[a] = mandel(x, y, maxIterations);
+  }
+    __syncthreads();
+  for (int a = 0; a < pixelPerThread; ++a) {
+    *((int *)((char *)buf + (basey + a) * pitch) + rowX) = res[a];
   }
 }
 
@@ -54,17 +58,19 @@ void hostFE(float upperX, float upperY, float lowerX, float lowerY, int *img,
   float stepY = (upperY - lowerY) / resY;
 
   int *buf, *devMem;
-  int thrPerRow = ((resX / pixelPerThread) + 1);
-  int block_x = thrPerRow / threadsPerBlock + 1;
-  int block_y = resY;
+  int block_x = resX / threadsPerBlock + 1;
+  int block_y = resY / pixelPerThread + 1;
 
   size_t pitch;
   dim3 TB(threadsPerBlock, 1);
   dim3 GB(block_x, block_y);
 
-  cudaMallocPitch((void **)&devMem, &pitch, resX * sizeof(int), resY);
-  mandelKernel<<<GB, TB>>>(lowerX, lowerY, devMem, resX, resY, stepX,
-                           stepY, pitch, maxIterations);
+
+  cudaMallocPitch((void **)&devMem, &pitch,
+                  block_x * threadsPerBlock * sizeof(int),
+                  block_y * pixelPerThread);
+  mandelKernel<<<GB, TB>>>(lowerX, lowerY, devMem, resX, resY, stepX, stepY,
+                           pitch, maxIterations);
   cudaHostAlloc(&buf, resX * resY * sizeof(int), cudaHostAllocDefault);
   cudaMemcpy2D(buf, sizeof(int) * resX, devMem, pitch, resX * sizeof(int), resY,
                cudaMemcpyDeviceToHost);
